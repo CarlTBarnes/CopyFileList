@@ -7,7 +7,7 @@ C:\> CopyFileList From=%FileList% To=%Folder% [Exclude="%CommaDelimWildcards"] [
 
 
 ---
-*/SkipCommon*
+**/SkipCommon**
 
 adds several exclusions to the exclusion list. 
 ```'*.ICO,
@@ -21,10 +21,11 @@ adds several exclusions to the exclusion list.
     *.LNK,
     *.MANIFEST,
     *.RES,
-    *.CUR```
+    *.CUR
+```
 
 ---
-*/Debug*
+**/Debug**
 will write messages to OutputDebugString (ODS)
 
 My favorite ODS viewer is [DebugViewPP](https://github.com/CobaltFusion/DebugViewPP)
