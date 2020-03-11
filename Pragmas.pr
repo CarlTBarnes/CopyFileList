@@ -1,0 +1,2 @@
+#pragma define(StringTheoryLinkMode=>on)
+#pragma define(StringTheoryDllMode=>off)
