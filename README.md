@@ -10,17 +10,23 @@ Examples
 ```c:\> CopyFileList```
 
 Error, will show a usage window
+
 ---
+
 
 ```c:\> CopyFileList From=C:\Src\MyProj\Obj\Debug\MyProj.cwproj.FileList.XML  To=C:\Src\MyProj\Profile```
 
 will copy all files in the Opened Files section of the FileList.xml
+
 ---
+
 
 ```c:\> CopyFileList From=C:\Src\MyProj\Obj\Debug\MyProj.cwproj.FileList.XML  To=C:\Src\MyProj\Profile /SkipCommon```
 
 will copy all files in the Opened Files section of the FileList.xml, except those with common extensions
+
 ---
+
 
 ```c:\> CopyFileList From=C:\Src\MyProj\Obj\Debug\MyProj.cwproj.FileList.XML  To=C:\Src\MyProj\Profile Exclude="ctQ*.*,AB*.*" /SkipCommon```
 
