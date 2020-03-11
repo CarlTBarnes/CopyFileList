@@ -5,6 +5,30 @@ Usage
 ------
 C:\> CopyFileList From=%FileList% To=%Folder% [Exclude="%CommaDelimWildcards"] [/SkipCommon] [/Debug]
 
+
+---
+*/SkipCommon*
+
+adds several exclusions to the exclusion list. 
+```'*.ICO,
+    *.OBJ,
+    *.RSC,
+    *.LIB,
+    *.BMP,
+    *.JPG,
+    *.GIF,
+    *.EXE,
+    *.LNK,
+    *.MANIFEST,
+    *.RES,
+    *.CUR```
+
+---
+*/Debug*
+will write messages to OutputDebugString (ODS)
+
+My favorite ODS viewer is [DebugViewPP](https://github.com/CobaltFusion/DebugViewPP)
+
 Examples
 ---------
 ```c:\> CopyFileList```
@@ -32,8 +56,3 @@ will copy all files in the Opened Files section of the FileList.xml, except thos
 
 will copy all files in the Opened Files section of the FileList.xml, except those with common extensions, and additionally skip any files matching `ctQ*.*` or `AB*.*`
 
----
-/Debug 
-will write messages to OutputDebugString (ODS)
-
-My favorite ODS viewer is [DebugViewPP](https://github.com/CobaltFusion/DebugViewPP)
