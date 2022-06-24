@@ -5,8 +5,9 @@ MD TestDestCopy
 SET FromBS=.\obj\release
 IF   EXIST .\obj\debug SET FromBS=.\obj\debug
 
-REM 
-GOTO :BadTest
+REM GOTO :BadTest
+REM GOTO :BadFromIsDir
+REM GOTO :BadToIsFile
 
 ECHO ================ Test with CopyFileList.cwproj.FileList.xml =================
 ECHO  CopyFileList From="%FromBS%\CopyFileList.cwproj.FileList.xml" TO=.\TestDestCopy /Debug /Bang /SkipCommon
@@ -21,6 +22,22 @@ ECHO  CopyFileList From="%FromBS%\TestBAD.xml" TO=.\TestDestCopy /Debug /Bang /S
 START CopyFileList From="%FromBS%\TestBAD.xml" TO=.\TestDestCopy /Debug /Bang /SkipCommon
 
 REM You need to make TestBAD.xml by copy FileList.xml then edit it to add some errors like bad file names
+GOTO :EOF
+
+
+:BadFromIsDir
+ECHO ==================== Test From=Directory  ======================
+ECHO  CopyFileList From="%FromBS%" TO=.\TestDestCopy /Debug /Bang /SkipCommon
+START CopyFileList From="%FromBS%" TO=.\TestDestCopy /Debug /Bang /SkipCommon
+GOTO :EOF
+
+
+:BadToIsFile
+ECHO ==================== Test TO=File  ======================
+REM FYI %0 is is BAT file
+COPY %0 .\TestDestCopy
+ECHO  CopyFileList From="%FromBS%\CopyFileList.cwproj.FileList.xml" TO=%0 /Debug /Bang /SkipCommon
+START CopyFileList From="%FromBS%\CopyFileList.cwproj.FileList.xml" TO=%0 /Debug /Bang /SkipCommonn
 GOTO :EOF
 
 

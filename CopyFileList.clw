@@ -47,8 +47,10 @@
    ODS  (STRING xMessage)
    MODULE('API')
      OutputDebugString(*CSTRING),RAW,PASCAL,NAME('OutputDebugStringA'),DLL(1)
+     GetFileAttributes(*CSTRING FileName),LONG,PASCAL,DLL(1),RAW,NAME('GetFileAttributesA')  !Returns Attribs 
    END
 
+   ExistsDirectory(STRING pDirName),BOOL  !True if Directory and Not file
    IsExcluded(STRING xFileName),BOOL
  END
 
@@ -98,13 +100,19 @@ DoneListErrs    StringTheory ! List of Files Errored
  END
  
  IF ~EXISTS( InFile )
-     MESSAGE('From['& InFile &']|Not found|Note: /FROM should be a FileList.XML||Usage:|' & Usage  ,'CopyFileList did NOT Copy')
+     MESSAGE('FROM='& InFile &' |FROM File Not found|Note: /FROM should be a FileList.XML||Usage:|' & Usage  ,'CopyFileList did NOT Copy')
+     HALT(1)
+ ELSIF ExistsDirectory( InFile )
+     MESSAGE('FROM='& InFile &' |FROM Cannot be a Directory|Note: /FROM should be a FileList.XML||Usage:|' & Usage  ,'CopyFileList did NOT Copy')
      HALT(1)
  END
 
  IF ~EXISTS(DestFolder)
-     MESSAGE('To Folder['& DestFolder &']|Not found||Usage:|' & Usage,'CopyFileList did NOT Copy')
+     MESSAGE('TO='& DestFolder &' |TO Folder Not found||Usage:|' & Usage,'CopyFileList did NOT Copy')
      HALT(2) 
+ ELSIF ~ExistsDirectory( DestFolder )
+     MESSAGE('TO='& DestFolder &' |TO Must be a Directory||Usage:|' & Usage,'CopyFileList did NOT Copy')
+     HALT(2)
  END 
 
  IF ~FileList.LoadFile( InFile ) THEN       !06/23/22 Carl added IF Failed and Msg
@@ -286,3 +294,13 @@ sz  &CSTRING
   sz  = xMessage
   OutputDebugString( sz )
   DISPOSE(sz)
+!=========================================
+ExistsDirectory PROCEDURE(STRING pDirName)  !,BOOL True if Directory and Not file
+cFN CSTRING(261),AUTO
+FA  LONG,AUTO
+eFILE_ATTRIBUTE_DIRECTORY    EQUATE(10h)        !The handle that identifies a directory.
+eINVALID_FILE_ATTRIBUTES     EQUATE(0FFFFFFFFh) !(-1) File or folder does not exist
+  CODE
+  cFN = CLIP(pDirName)
+  FA = GetFileAttributes(cFN)
+  RETURN CHOOSE(BAND(FA,eFILE_ATTRIBUTE_DIRECTORY) AND FA <> eINVALID_FILE_ATTRIBUTES)
