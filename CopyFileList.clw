@@ -38,8 +38,9 @@
 !              failures will be HALT N, which can be detected by ERRORLEVEL in batch files
 !
 ! Allow FROM to contain wildcards e.g. FROM=.\Obj\Debug\*.cwproj.FileList.XML to  do multiple projects
-! Files names in XML are ALL UPPER. The COPY restult is UPPER. 
-!    Would like Original Case. Maybe Use Directory() to get it.
+! Files names in XML are ALL UPPER. The COPY restult is UPPER.  Would like Original Case.
+!    FileNameOriginalCase() done 6/23/22. You MUST delete exising UPPER files in Dest Folder
+! Generate a BAT file with all the Copy code?
 
  PROGRAM
  MAP
@@ -47,11 +48,14 @@
    ODS  (STRING xMessage)
    MODULE('API')
      OutputDebugString(*CSTRING),RAW,PASCAL,NAME('OutputDebugStringA'),DLL(1)
-     GetFileAttributes(*CSTRING FileName),LONG,PASCAL,DLL(1),RAW,NAME('GetFileAttributesA')  !Returns Attribs 
+     GetFileAttributes(*CSTRING FileName),LONG,PASCAL,DLL(1),RAW,NAME('GetFileAttributesA')  !Returns Attribs
+     FindFirstFile(*CSTRING lpFileName, LONG WIN32_FIND_DATA),LONG,RAW,PASCAL,DLL(1),NAME('FindFirstFileA')
+     FindClose(LONG hFindFile),BOOL,PROC,PASCAL,DLL(1)
    END
 
-   ExistsDirectory(STRING pDirName),BOOL  !True if Directory and Not file
    IsExcluded(STRING xFileName),BOOL
+   ExistsDirectory(STRING pDirName),BOOL            !True if Directory and Not File
+   FileNameOriginalCase(*CSTRING InOutFileName )    !Take UPPER file name and find Original Mixed Case
  END
 
  INCLUDE('StringTheory.inc'),ONCE
@@ -203,7 +207,7 @@ CurrRow        StringTheory
 Count:Err      LONG(0)
 Count:Success  LONG(0)
 Count:Skip     LONG(0)
-FileName       ANY 
+FileName       CSTRING(261) !was ANY use C so same no trailing spaces
  CODE 
 
  LOOP RowNum = 3 TO FileList.Records()
@@ -213,7 +217,7 @@ FileName       ANY
    END 
 
    ! example expected content: <file name="C:\SV\CLARION11.0.13244\LIBSRC\WIN\PROPERTY.CLW" />
-   FileName = CurrRow.Between('"', '"', , , st:NoCase )
+   FileName = CLIP(CurrRow.Between('"', '"', , , st:NoCase ))
                                          !Debug('FileName['& FileName &']')
    
    IF FileName=''                   
@@ -222,11 +226,12 @@ FileName       ANY
       Debug('Skipping FileName['& FileName &']')
       Count:Skip += 1
       DoneListSkip.AddLine(FileName)
-   ELSE 
+   ELSE
+      FileNameOriginalCase(FileName)  !Chnage all UPPER File Name to Mixed Case on Disk
       COPY( FileName, DestFolder)
       IF ErrorCode() 
          Count:Err += 1
-         DoneListErrs.AddLine('Error: ' & ErrorCode() &' - '& CLIP(FileName) &' - '& ERROR())
+         DoneListErrs.AddLine('Error: ' & ErrorCode() &' - '& FileName &' - '& ERROR())
       ELSE 
          Count:Success += 1
          DoneListCopy.AddLine(FileName)
@@ -304,3 +309,37 @@ eINVALID_FILE_ATTRIBUTES     EQUATE(0FFFFFFFFh) !(-1) File or folder does not ex
   cFN = CLIP(pDirName)
   FA = GetFileAttributes(cFN)
   RETURN CHOOSE(BAND(FA,eFILE_ATTRIBUTE_DIRECTORY) AND FA <> eINVALID_FILE_ATTRIBUTES)
+!=======================================================
+FileNameOriginalCase  PROCEDURE(*CSTRING InOutFileName)
+!The XML FileList has the Names ALL UPPER. 
+!For me the Dest Folder files have ALL UPPER names, 
+!Hoping to use this to get the original case
+!It works BUT the Old UPPER files in the Dest MUST BE DELETED or the Case is preserved as UPPER
+
+!Code from CwUtil FileExists ... Directory() would work but API should be faster
+WIN32_FIND_DATA    GROUP,TYPE
+dwFileAttributes     ULONG
+ftCreationTime       STRING(2*4) !GROUP(FILETIME). ULONG ULONG
+ftLastAccessTime     STRING(2*4) !GROUP(FILETIME).
+ftLastWriteTime      STRING(2*4) !GROUP(FILETIME).
+nFileSizeHigh        ULONG
+nFileSizeLow         ULONG
+dwReserved0          ULONG
+dwReserved1          ULONG
+cFileName            CSTRING( FILE:MaxFilePath )
+cAlternateFileName   CSTRING( 14 )
+                   END
+hFindHandle SIGNED,AUTO 
+gFileFind   LIKE(WIN32_FIND_DATA),AUTO
+NamePOS     SHORT,AUTO
+  CODE
+  CLEAR(gFileFind)
+  hFindHandle = FindFirstFile(InOutFileName, ADDRESS(gFileFind))
+  IF hFindHandle = -1 THEN RETURN.  ! INVALID_HANDLE_VALUE EQUATE(-1)
+  FindClose(hFindHandle)
+  
+  NamePOS=INSTRING('\',InOutFileName,-1,LEN(InOutFileName)) + 1 !Search backwards for Last \ file name is +1 after, or 0+1=1
+  IF UPPER(gFileFind.cFileName) = UPPER(CLIP(SUB(InOutFileName,NamePOS,260))) THEN  !Be sure found the In Name
+     InOutFileName=SUB(InOutFileName,1,NamePos-1) & gFileFind.cFileName             !  change to Mixed case    
+  END
+  RETURN 
