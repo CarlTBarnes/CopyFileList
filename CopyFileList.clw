@@ -40,7 +40,8 @@
 ! Allow FROM to contain wildcards e.g. FROM=.\Obj\Debug\*.cwproj.FileList.XML to  do multiple projects
 ! Files names in XML are ALL UPPER. The COPY restult is UPPER.  Would like Original Case.
 !    FileNameOriginalCase() done 6/23/22. You MUST delete exising UPPER files in Dest Folder
-! Generate a BAT file with all the Copy code?
+! Generate a BAT file with all the Copy code?  Sort files by Name or .EXT or Path, in the FileList they are by PATH
+! /Include list to only copy specific file specs,might just want ICO. But could take Dest Folder and Delete unwanted
 
  PROGRAM
  MAP
@@ -258,10 +259,10 @@ FileName       CSTRING(261) !was ANY use C so same no trailing spaces
                 ,'&Close|Explore Dest|View Copys|View Errors|Skipped Files|Skip List')
     OF 1 ; BREAK                
     OF 2 ; RUN('Explorer "' & CLIP(DestFolder) &'"')
-    OF 3 ; Bang1.LinesViewInList(DoneListCopy)
-    OF 4 ; Bang1.LinesViewInList(DoneListErrs)
-    OF 5 ; Bang1.LinesViewInList(DoneListSkip)
-    OF 6 ; Bang1.LinesViewInList(Exclude)
+    OF 3 ; Bang1.LinesViewInList(DoneListCopy,'DoneListCopy - Files Copied')
+    OF 4 ; Bang1.LinesViewInList(DoneListErrs,'DoneListErrs - Error on Copy')
+    OF 5 ; Bang1.LinesViewInList(DoneListSkip,'DoneListSkip - Skipped Files')
+    OF 6 ; Bang1.LinesViewInList(Exclude,'Exclude')
     END
     CYCLE
  END  
