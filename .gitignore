@@ -2,3 +2,4 @@ obj/
 CopyFileList.sln.cache
 *.MAP
 *.lnk
+*.bak

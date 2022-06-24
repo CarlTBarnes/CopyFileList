@@ -36,26 +36,34 @@
 ! Possible Future Enhancements
 ! /NoMessage - remove calls to MESSAGE
 !              failures will be HALT N, which can be detected by ERRORLEVEL in batch files
-
+!
+! Allow FROM to contain wildcards e.g. FROM=.\Obj\Debug\*.cwproj.FileList.XML to  do multiple projects
+! Files names in XML are ALL UPPER. The COPY restult is UPPER. 
+!    Would like Original Case. Maybe Use Directory() to get it.
 
  PROGRAM
  MAP
    Debug(STRING xMessage)
    ODS  (STRING xMessage)
    MODULE('API')
-     OutputDebugString(*CSTRING),RAW,PASCAL,NAME('OutputDebugStringA')
+     OutputDebugString(*CSTRING),RAW,PASCAL,NAME('OutputDebugStringA'),DLL(1)
    END
 
    IsExcluded(STRING xFileName),BOOL
  END
 
  INCLUDE('StringTheory.inc'),ONCE
+ INCLUDE('BigBangTheory.inc'),ONCE      !https://github.com/CarlTBarnes/StringTheory-LoadFile-Split-Viewer
+
+Bang1       BigBangTheory 
+BangDbg     BigBangTheory   !For ShowBang
+ShowBang    BOOL(FALSE)     !Use /Bang to see BigBang Debug - Dumb name
 
 ShowODS      BOOL(FALSE)
 
 Common       EQUATE('*.ICO,*.OBJ,*.RSC,*.LIB,*.BMP,*.JPG,*.GIF,*.EXE,*.LNK,*.MANIFEST,*.RES,*.CUR')
 
-FormalUsage  EQUATE('CopyFileList  From=%FileList%  To=%Folder%  [Exclude="%CommaDelimWildcards"]  [/SkipCommon] [/Debug]')
+FormalUsage  EQUATE('CopyFileList  From=%FileList%  To=%Folder%  [Exclude="%CommaDelimWildcards"]  [/SkipCommon] [/Debug] [/Bang]')
 ExampleUsage EQUATE('CopyFileList From=C:\Example\Obj\Debug\MyProj.cwproj.FileList.xml To=C:\Tmp\Src2 Exclude="ab*.clw,ab*.inc" /SkipCommon')
 Usage        EQUATE(FormalUsage & '||Example:|' & ExampleUsage & '||/SkipCommon will add:|' & Common)
 
@@ -64,9 +72,17 @@ InFile      ANY          ! Filename of FileList.xml
 DestFolder  ANY          ! Target folder for the copy
 Exclude     StringTheory ! Split list of WildCards to exclude from the copy
 FileList    StringTheory ! LoadFile of the FlieList.xml
+DoneListCopy    StringTheory ! List of Files Copied
+DoneListSkip    StringTheory ! List of Files Skipped
+DoneListErrs    StringTheory ! List of Files Errored
 
 !==========================================================================================
- CODE 
+ CODE
+ SYSTEM{7A7Dh}=1 !PROP:MsgModeDefault added C10 or 11 so all messages allow copy text
+ Bang1.LineViewInConsolas = TRUE
+ BangDbg.LineViewInConsolas = TRUE
+ ShowBang    = CHOOSE( UPPER(COMMAND('/Bang'))  = 'BANG')  ! controls if BigBang Windows show
+
  ShowODS     = CHOOSE( UPPER(COMMAND('/Debug')) = 'DEBUG') ! controls if Debug messages are sent to OutputDebugString
  InFile      = COMMAND('From')
  DestFolder  = COMMAND('To')
@@ -75,8 +91,14 @@ FileList    StringTheory ! LoadFile of the FlieList.xml
                        Debug('Infile['& Infile &']')
                        Debug('DestFolder['& DestFolder &']')
 
+ IF ~InFile OR ~DestFolder
+     MESSAGE('Command line requires /FROM= and /TO= Parameters||Note: /FROM should be a FileList.XML' & |
+             '||Usage:|' & Usage &'||Command:|' & COMMAND('') ,'CopyFileList Parameters',,'Close',,MSGMODE:CANCOPY)
+     HALT(1)
+ END
+ 
  IF ~EXISTS( InFile )
-     MESSAGE('From['& InFile &']|Not found|Note: In should be a FileList.XML||Usage:|' & Usage  ,'CopyFileList did NOT Copy')
+     MESSAGE('From['& InFile &']|Not found|Note: /FROM should be a FileList.XML||Usage:|' & Usage  ,'CopyFileList did NOT Copy')
      HALT(1)
  END
 
@@ -85,11 +107,25 @@ FileList    StringTheory ! LoadFile of the FlieList.xml
      HALT(2) 
  END 
 
- FileList.LoadFile( InFile )
+ IF ~FileList.LoadFile( InFile ) THEN       !06/23/22 Carl added IF Failed and Msg
+    Message('FileList LoadFile failed' & |
+            '||Error: '& FileList.winErrorCode &' '& FileList.LastError & |
+            '||File: ' & InFile,'CopyFileList')
+    HALT(1)            
+ END
+ IF ShowBang THEN BangDbg.ValueView(FileList,'FileList '& InFile).
+ 
  FileList.Split('<13,10>')
+ IF ShowBang THEN BangDbg.LinesViewInList(FileList,'FileList Lines '& InFile).
 
  IF CLIP(LEFT(FileList.GetLine(2))) <>  '<<Opened_Files>'
-    MESSAGE('Expected the 2nd line to be <<Opened_Files>|It was:|' & FileList.GetLine(2) ,'CopyFileList did NOT Copy')
+    CASE MESSAGE('Expected the 2nd line to be <<Opened_Files>' & |
+                 '|It was: ' & FileList.GetLine(2) & |
+                 '||File: ' & CLIP(InFile) , |
+                 'CopyFileList did NOT Copy',,'Close|View File')
+    OF 2 ; Bang1.DoNotShow=False 
+           Bang1.LinesViewInList(FileList,'FileList Lines '& InFile) 
+    END           
     HALT(3)
  END
 
@@ -109,7 +145,10 @@ SetExclude                 ROUTINE
     ELSE 
        DO SetExclude:MergeCommonExclusions
     END 
- END 
+ END
+ IF ShowBang AND Exclude.Records() THEN 
+    BangDbg.LinesViewInList(Exclude,'Exclude List' & CHOOSE(~COMMAND('/SkipCommon'),'',' /SkipCommon') )
+ END
                              Debug('Exclude.GetValue()['& Exclude.GetValue() &'] Exclude.Records()['& Exclude.Records() &']')
                              LOOP Tmp# = 1 TO Exclude.Records()
                                Debug('Exclude['& Tmp# &'] ' & Exclude.GetLine(Tmp#) )
@@ -169,29 +208,49 @@ FileName       ANY
    FileName = CurrRow.Between('"', '"', , , st:NoCase )
                                          !Debug('FileName['& FileName &']')
    
-   IF IsExcluded( FileName) 
+   IF FileName=''                   
+      !blank
+   ELSIF IsExcluded( FileName) 
       Debug('Skipping FileName['& FileName &']')
       Count:Skip += 1
+      DoneListSkip.AddLine(FileName)
    ELSE 
       COPY( FileName, DestFolder)
       IF ErrorCode() 
          Count:Err += 1
+         DoneListErrs.AddLine('Error: ' & ErrorCode() &' - '& CLIP(FileName) &' - '& ERROR())
       ELSE 
          Count:Success += 1
+         DoneListCopy.AddLine(FileName)
       END 
       Debug('FileName['& FileName &'] ErrorCode()['& ErrorCode() &']=['& Error() &']')      
    END 
  END
 
- IF MESSAGE( 'Count:Success['& Count:Success &']' |
-             &  '|Count:Err['& Count:Err     &']' |
-             & '|Count:Skip['& Count:Skip    &']' |
-             ,'Done'                              |
-             ,                                    |
-             ,'&OK|Explore Dest',                 |
-             1) = 2                               |
- THEN 
-    RUN('Explorer ' & DestFolder)
+    IF ~DoneListCopy.Records() THEN DoneListCopy.AddLine('(None)'). ; DoneListCopy.Join('<13,10>')
+    IF ~DoneListSkip.Records() THEN DoneListSkip.AddLine('(None)'). ; DoneListSkip.Join('<13,10>')
+    IF ~DoneListErrs.Records() THEN DoneListErrs.AddLine('(None)'). ; DoneListErrs.Join('<13,10>')
+    IF ~Exclude.Records() THEN Exclude.AddLine('(None)'). ; Exclude.Join('<13,10>')
+
+ LOOP 
+    Bang1.DoNotShow=False
+    CASE MESSAGE(  'Count:Success <9>[ '& Count:Success &' ]' |
+                & '|Count:Errors  <9>[ '& Count:Err     &' ]' |
+                & '|Count:Skipped <9>[ '& Count:Skip    &' ]' |
+                & '||Copy From: '  & CLIP(InFile)     |
+                & '|Destination: ' & CLIP(DestFolder) |
+                & '||Command: ' & COMMAND('')         |
+                ,'Done CopyFileList'                  |
+                ,                                     |
+                ,'&Close|Explore Dest|View Copys|View Errors|Skipped Files|Skip List')
+    OF 1 ; BREAK                
+    OF 2 ; RUN('Explorer "' & CLIP(DestFolder) &'"')
+    OF 3 ; Bang1.LinesViewInList(DoneListCopy)
+    OF 4 ; Bang1.LinesViewInList(DoneListErrs)
+    OF 5 ; Bang1.LinesViewInList(DoneListSkip)
+    OF 6 ; Bang1.LinesViewInList(Exclude)
+    END
+    CYCLE
  END  
 
 !=========================================
