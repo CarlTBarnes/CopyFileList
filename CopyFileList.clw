@@ -332,15 +332,19 @@ cAlternateFileName   CSTRING( 14 )
                    END
 hFindHandle SIGNED,AUTO 
 gFileFind   LIKE(WIN32_FIND_DATA),AUTO
-NamePOS     SHORT,AUTO
+InNamePOS   SHORT,AUTO      !Name Position in InOutFileName after path last \
+InNameCstr  &CSTRING        !Ref to Name   in InOutFileName after path last \
   CODE
   CLEAR(gFileFind)
   hFindHandle = FindFirstFile(InOutFileName, ADDRESS(gFileFind))
   IF hFindHandle = -1 THEN RETURN.  ! INVALID_HANDLE_VALUE EQUATE(-1)
   FindClose(hFindHandle)
   
-  NamePOS=INSTRING('\',InOutFileName,-1,LEN(InOutFileName)) + 1 !Search backwards for Last \ file name is +1 after, or 0+1=1
-  IF UPPER(gFileFind.cFileName) = UPPER(CLIP(SUB(InOutFileName,NamePOS,260))) THEN  !Be sure found the In Name
-     InOutFileName=SUB(InOutFileName,1,NamePos-1) & gFileFind.cFileName             !  change to Mixed case    
+  InNamePOS=INSTRING('\',InOutFileName,-1,LEN(InOutFileName)) + 1   !Search backwards for Last \ file name is +1 after, or 0+1=1
+? ASSERT(InNamePOS>=1 AND InNamePOS<=SIZE(InOutFileName))
+  InNameCstr &= (ADDRESS(InOutFileName[InNamePOS]))                         !Rely on CString <0> to mark end of Name Slice
+! IF UPPER(gFileFind.cFileName) = UPPER(CLIP(SUB(InOutFileName,InNamePOS,260))) THEN
+  IF UPPER(gFileFind.cFileName) = UPPER(InNameCstr) THEN                    !Be sure Win32 FFF Name is = In Name
+     InOutFileName=SUB(InOutFileName,1,InNamePos-1) & gFileFind.cFileName   !   change to Mixed case FFF Name
   END
   RETURN 
