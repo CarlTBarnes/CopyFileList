@@ -62,7 +62,7 @@
  INCLUDE('StringTheory.inc'),ONCE
  INCLUDE('BigBangTheory.inc'),ONCE      !https://github.com/CarlTBarnes/StringTheory-LoadFile-Split-Viewer
 
-Bang1       BigBangTheory 
+Bang1       BigBangTheory   !User Interface BBT
 BangDbg     BigBangTheory   !For ShowBang
 ShowBang    BOOL(FALSE)     !Use /Bang to see BigBang Debug - Dumb name
 
@@ -86,6 +86,7 @@ DoneListErrs    StringTheory ! List of Files Errored
 !==========================================================================================
  CODE
  SYSTEM{7A7Dh}=1 !PROP:MsgModeDefault added C10 or 11 so all messages allow copy text
+ Bang1.ShowAlways = TRUE            !User cannot select Do Not Show and hide BBT displaysd
  Bang1.LineViewInConsolas = TRUE
  BangDbg.LineViewInConsolas = TRUE
  ShowBang    = CHOOSE( UPPER(COMMAND('/Bang'))  = 'BANG')  ! controls if BigBang Windows show
@@ -132,14 +133,16 @@ DoneListErrs    StringTheory ! List of Files Errored
  IF ShowBang THEN BangDbg.LinesViewInList(FileList,'FileList Lines '& InFile).
 
  IF CLIP(LEFT(FileList.GetLine(2))) <>  '<<Opened_Files>'
-    CASE MESSAGE('Expected the 2nd line to be <<Opened_Files>' & |
-                 '|It was: ' & FileList.GetLine(2) & |
-                 '||File: ' & CLIP(InFile) , |
-                 'CopyFileList did NOT Copy',,'Close|View File')
-    OF 2 ; Bang1.DoNotShow=False 
-           Bang1.LinesViewInList(FileList,'FileList Lines '& InFile) 
+    LOOP 
+       CASE MESSAGE('Expected the 2nd line to be <<Opened_Files>' & |
+                    '|It was: ' & FileList.GetLine(2) & |
+                    '||From File: ' & CLIP(InFile) , |
+                    'CopyFileList did NOT Copy',,'Close|View From File|Explore From')
+       OF 1 ; HALT(3)
+       OF 2 ; Bang1.LinesViewInList(FileList,'FileList Lines '& InFile) 
+       OF 3 ; RUN('Explorer /select,"'& CLIP(InFile) &'"')
+       END           
     END           
-    HALT(3)
  END
 
  DO SetExclude
@@ -246,8 +249,7 @@ FileName       CSTRING(261) !was ANY use C so same no trailing spaces
     IF ~DoneListErrs.Records() THEN DoneListErrs.AddLine('(None)'). ; DoneListErrs.Join('<13,10>')
     IF ~Exclude.Records() THEN Exclude.AddLine('(None)'). ; Exclude.Join('<13,10>')
 
- LOOP 
-    Bang1.DoNotShow=False
+ LOOP
     CASE MESSAGE(  'Count:Success <9>[ '& Count:Success &' ]' |
                 & '|Count:Errors  <9>[ '& Count:Err     &' ]' |
                 & '|Count:Skipped <9>[ '& Count:Skip    &' ]' |
