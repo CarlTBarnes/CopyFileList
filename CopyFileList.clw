@@ -33,6 +33,12 @@
 ! ===============================================================================================
 !EndRegion Notices and Notes
 
+! Carl Barnes Fork
+! I used this as an examle of my Big Bang Theory (BBT) to debug and understand the data loaded in String Theory 
+! The User Interface here consists of Messages that can open Big Bang views to show details.
+! If I really wanted this tool to show result lists to the user I would program a Window with mutliple lists.
+! This is an example of how, if things go bad, you have an easy way to show the contents of ST Value and Lines in a Window.
+
 ! Possible Future Enhancements
 ! /NoMessage - remove calls to MESSAGE
 !              failures will be HALT N, which can be detected by ERRORLEVEL in batch files
@@ -82,7 +88,7 @@ FileList    StringTheory ! LoadFile of the FlieList.xml
 DoneListCopy    StringTheory ! List of Files Copied
 DoneListSkip    StringTheory ! List of Files Skipped
 DoneListErrs    StringTheory ! List of Files Errored
-
+SuccessMsgText  ANY
 !==========================================================================================
  CODE
  SYSTEM{7A7Dh}=1 !PROP:MsgModeDefault added C10 or 11 so all messages allow copy text
@@ -249,26 +255,42 @@ FileName       CSTRING(261) !was ANY use C so same no trailing spaces
     IF ~DoneListErrs.Records() THEN DoneListErrs.AddLine('(None)'). ; DoneListErrs.Join('<13,10>')
     IF ~Exclude.Records() THEN Exclude.AddLine('(None)'). ; Exclude.Join('<13,10>')
 
- LOOP
-    CASE MESSAGE(  'Count:Success <9>[ '& Count:Success &' ]' |
+ SuccessMsgText =  'Count:Success <9>[ '& Count:Success &' ]' |
                 & '|Count:Errors  <9>[ '& Count:Err     &' ]' |
                 & '|Count:Skipped <9>[ '& Count:Skip    &' ]' |
                 & '||Copy From: '  & CLIP(InFile)     |
                 & '|Destination: ' & CLIP(DestFolder) |
-                & '||Command: ' & COMMAND('')         |
+                & '||Command: ' & COMMAND('')
+ LOOP
+    CASE MESSAGE(SuccessMsgText                       |
                 ,'Done CopyFileList'                  |
                 ,                                     |
-                ,'&Close|Explore Dest|View Copys|View Errors|Skipped Files|Skip List')
-    OF 1 ; BREAK                
+                ,'&Close|Explore Dest|View Copys|More Views ...' & CHOOSE(~Count:Err,'','|View Errors'))
+    OF 1 ; BREAK  ! 1     2            3          4              5  
     OF 2 ; RUN('Explorer "' & CLIP(DestFolder) &'"')
+    OF 3 ; Bang1.LinesViewInList(DoneListCopy,'DoneListCopy - Files Copied')
+    OF 4 ; DO MoreViewsRtn
+    OF 5 ; Bang1.LinesViewInList(DoneListErrs,'DoneListErrs - Error on Copy')
+    END
+    CYCLE
+ END  
+
+MoreViewsRtn ROUTINE !Keep 1st Message smaller by adding several views to a 2nd message. 
+
+ LOOP
+    CASE MESSAGE(SuccessMsgText         |
+                ,'More Views CopyFileList'   |
+                ,                       |
+                ,'&Close|View In File|View Copys|View Errors|Skipped Files|Skip List')
+    OF 1 ; EXIT  !  1     2            3          4           5             6     
+    OF 2 ; Bang1.LinesViewInList(FileList,'FileList Lines '& InFile) 
     OF 3 ; Bang1.LinesViewInList(DoneListCopy,'DoneListCopy - Files Copied')
     OF 4 ; Bang1.LinesViewInList(DoneListErrs,'DoneListErrs - Error on Copy')
     OF 5 ; Bang1.LinesViewInList(DoneListSkip,'DoneListSkip - Skipped Files')
     OF 6 ; Bang1.LinesViewInList(Exclude,'Exclude')
     END
     CYCLE
- END  
-
+ END
 !=========================================
 IsExcluded PROCEDURE(STRING xFileName) ! assumes xFileName is upper cased
 ExcludeRowNum  LONG,AUTO
